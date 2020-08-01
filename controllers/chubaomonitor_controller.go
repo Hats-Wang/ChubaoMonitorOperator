@@ -50,7 +50,6 @@ type ChubaoMonitorReconciler struct {
 func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
 	log := r.Log.WithValues("chubaomonitor", req.NamespacedName)
-
 	// your logic here
 	chubaomonitor := &cachev1alpha1.ChubaoMonitor{}
 	err := r.Get(ctx, req.NamespacedName, chubaomonitor)
@@ -65,23 +64,29 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	}
 	//fetch the ChubaoMonitor instance successfully
 
+	desiredDeploymentPrometheus := r.deploymentforprometheus(chubaomonitor)
+	desiredServicePrometheus := serviceforprometheus(chubaomonitor)
+	desiredDeploymentGrafana := r.deploymentforgrafana(chubaomonitor)
+	desiredServiceGrafana := serviceforgrafana(chubaomonitor)
+
 	//check if the prometheus deployment exit. If not, create one
-	deployprometheus := &appsv1.Deployment{}
-	err = r.Get(ctx, types.NamespacedName{Name: "prometheus", Namespace: chubaomonitor.Namespace}, deployprometheus)
+	deploymentPrometheus := &appsv1.Deployment{}
+	err = r.Get(ctx, types.NamespacedName{Name: "prometheus", Namespace: chubaomonitor.Namespace}, deploymentPrometheus)
 	if err != nil && errors.IsNotFound(err) {
-		dep := r.deploymentforprometheus(chubaomonitor)
-		log.Info("Creating a new Deployment", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
-		err = r.Create(ctx, dep)
+		//create prometheus deployment
+		log.Info("Creating a new Deployment", "Deployment.Namespace", desiredDeploymentPrometheus.Namespace, "Deployment.Name", desiredDeploymentPrometheus.Name)
+		err = r.Create(ctx, desiredDeploymentPrometheus)
 		if err != nil {
-			log.Error(err, "Failed to create new Deployment", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
+			log.Error(err, "Failed to create new Deployment", "Deployment.Namespace", desiredDeploymentPrometheus.Namespace, "Deployment.Name", desiredDeploymentPrometheus.Name)
 			return ctrl.Result{}, err
 		}
 		//create the deployment successfully. Then create prometheus service.
-		svc := serviceforprometheus(chubaomonitor)
-		log.Info("Creating a new Service", "Service.Namespace", svc.Namespace, "Service.Name", "prometheus-service")
-		err = r.Create(ctx, svc)
+
+		//create the prometheus service
+		log.Info("Creating a new Service", "Service.Namespace", desiredServicePrometheus.Namespace, "Service.Name", "prometheus-service")
+		err = r.Create(ctx, desiredServicePrometheus)
 		if err != nil {
-			log.Error(err, "Failed to create new Service", "Service.Namespace", svc.Namespace, "Service.Name", "prometheus-service")
+			log.Error(err, "Failed to create new Service", "Service.Namespace", desiredServicePrometheus.Namespace, "Service.Name", "prometheus-service")
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{Requeue: true}, nil
@@ -91,23 +96,23 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	//fetch the deploymentprometheus successfully
 
 	//check whether the grafana deployment exit. If not, create one
-	deploygrafana := &appsv1.Deployment{}
-	err = r.Get(ctx, types.NamespacedName{Name: "grafana", Namespace: chubaomonitor.Namespace}, deploygrafana)
+	deploymentGrafana := &appsv1.Deployment{}
+	err = r.Get(ctx, types.NamespacedName{Name: "grafana", Namespace: chubaomonitor.Namespace}, deploymentGrafana)
 	if err != nil && errors.IsNotFound(err) {
-		dep := r.deploymentforgrafana(chubaomonitor)
-		log.Info("Creating a new Deployment", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
-		err = r.Create(ctx, dep)
+		//create the grafana deployment
+		log.Info("Creating a new Deployment", "Deployment.Namespace", desiredDeploymentGrafana.Namespace, "Deployment.Name", desiredDeploymentGrafana.Name)
+		err = r.Create(ctx, desiredDeploymentGrafana)
 		if err != nil {
-			log.Error(err, "Failed to create new Deployment", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
+			log.Error(err, "Failed to create new Deployment", "Deployment.Namespace", desiredDeploymentGrafana.Namespace, "Deployment.Name", desiredDeploymentGrafana.Name)
 			return ctrl.Result{}, err
 		}
-
 		//create the deployment successfully.Then create grafana service
-		svc := serviceforgrafana(chubaomonitor)
-		log.Info("Creating a new Service", "Service.Namespace", svc.Namespace, "Service.Name", "grafana-service")
-		err = r.Create(ctx, svc)
+
+		//create the grafana service
+		log.Info("Creating a new Service", "Service.Namespace", desiredServiceGrafana.Namespace, "Service.Name", "grafana-service")
+		err = r.Create(ctx, desiredServiceGrafana)
 		if err != nil {
-			log.Error(err, "Failed to create new Service", "Service.Namespace", svc.Namespace, "Service.Name", "grafana-service")
+			log.Error(err, "Failed to create new Service", "Service.Namespace", desiredServiceGrafana.Namespace, "Service.Name", "grafana-service")
 			return ctrl.Result{}, err
 		}
 
