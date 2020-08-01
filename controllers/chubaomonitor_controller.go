@@ -52,6 +52,73 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	log := r.Log.WithValues("chubaomonitor", req.NamespacedName)
 
 	// your logic here
+	chubaomonitor := &cachev1alpha1.ChubaoMonitor{}
+	err := r.Get(ctx, req.NamespacedName, chubaomonitor)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			//can't find ChubaoMonitor instance
+			fmt.Println("ChubaoMonitor resource not found. Ignoring since object must be deleted")
+			return ctrl.Result{}, nil
+		}
+		log.Error(err, "Failed to fetch ChubaoMonitor")
+		return ctrl.Result{}, err
+	}
+	//fetch the ChubaoMonitor instance successfully
+
+	//check if the prometheus deployment exit. If not, create one
+	deployprometheus := &appsv1.Deployment{}
+	err = r.Get(ctx, types.NamespacedName{Name: "prometheus", Namespace: chubaomonitor.Namespace}, deployprometheus)
+	if err != nil && errors.IsNotFound(err) {
+		dep := r.deploymentforprometheus(chubaomonitor)
+		log.Info("Creating a new Deployment", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
+		err = r.Create(ctx, dep)
+		if err != nil {
+			log.Error(err, "Failed to create new Deployment", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
+			return ctrl.Result{}, err
+		}
+		//create the deployment successfully. Then create prometheus service.
+		svc := serviceforprometheus(chubaomonitor)
+		log.Info("Creating a new Service", "Service.Namespace", svc.Namespace, "Service.Name", "prometheus-service")
+		err = r.Create(ctx, svc)
+		if err != nil {
+			log.Error(err, "Failed to create new Service", "Service.Namespace", svc.Namespace, "Service.Name", "prometheus-service")
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{Requeue: true}, nil
+	} else if err != nil {
+		log.Error(err, "Failed to get Deployment")
+	}
+	//fetch the deploymentprometheus successfully
+
+	//check whether the grafana deployment exit. If not, create one
+	deploygrafana := &appsv1.Deployment{}
+	err = r.Get(ctx, types.NamespacedName{Name: "grafana", Namespace: chubaomonitor.Namespace}, deploygrafana)
+	if err != nil && errors.IsNotFound(err) {
+		dep := r.deploymentforgrafana(chubaomonitor)
+		log.Info("Creating a new Deployment", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
+		err = r.Create(ctx, dep)
+		if err != nil {
+			log.Error(err, "Failed to create new Deployment", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
+			return ctrl.Result{}, err
+		}
+
+		//create the deployment successfully.Then create grafana service
+		svc := serviceforgrafana(chubaomonitor)
+		log.Info("Creating a new Service", "Service.Namespace", svc.Namespace, "Service.Name", "grafana-service")
+		err = r.Create(ctx, svc)
+		if err != nil {
+			log.Error(err, "Failed to create new Service", "Service.Namespace", svc.Namespace, "Service.Name", "grafana-service")
+			return ctrl.Result{}, err
+		}
+
+		return ctrl.Result{Requeue: true}, nil
+	} else if err != nil {
+		log.Error(err, "Failed to get Deployment")
+		return ctrl.Result{}, err
+	}
+	//fetch the deploymentgrafana successfully
+
+	//check if the deployment is right
 
 	//my logic finished
 	return ctrl.Result{}, nil
@@ -66,7 +133,7 @@ func (r *ChubaoMonitorReconciler) deploymentforprometheus(m *cachev1alpha1.Chuba
 			Kind:       "Deployment",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      m.Name,
+			Name:      "prometheus",
 			Namespace: m.Namespace,
 
 			OwnerReferences: []metav1.OwnerReference{
@@ -113,17 +180,7 @@ func containerforprometheus(m *cachev1alpha1.ChubaoMonitor) []corev1.Container {
 			Env: []corev1.EnvVar{
 				{Name: "TZ", Value: "Asia/Shanghai"},
 			},
-			VolumeMounts: []corev1.VolumeMount{
-				{
-					Name:      "monitor-config",
-					MountPath: "/etc/prometheus/prometheus.yml",
-					SubPath:   "prometheus.yml",
-				},
-				{
-					Name:      "prometheus-data",
-					MountPath: "/prometheus-data",
-				},
-			},
+			VolumeMounts: volumemountsforprometheus(),
 		},
 	}
 }
@@ -137,15 +194,9 @@ func serviceforprometheus(m *cachev1alpha1.ChubaoMonitor) *corev1.Service {
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "prometheus-service",
-			Namespace: m.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(m, schema.GroupVersionKind{
-					Group:   v1.SchemeGroupVersion.Group,
-					Version: v1.SchemeGroupVersion.Version,
-					Kind:    "ChubaoMonitor",
-				}),
-			},
+			Name:            "prometheus-service",
+			Namespace:       m.Namespace,
+			OwnerReferences: ownerreferenceforChubaoMonitor(m),
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
@@ -184,26 +235,32 @@ func volumeforprometheus(m *cachev1alpha1.ChubaoMonitor) []corev1.Volume {
 	}
 }
 
+func volumemountsforprometheus() []corev1.VolumeMount {
+	return []corev1.VolumeMount{
+		{
+			Name:      "monitor-config",
+			MountPath: "/etc/prometheus/prometheus.yml",
+			SubPath:   "prometheus.yml",
+		},
+		{
+			Name:      "prometheus-data",
+			MountPath: "/prometheus-data",
+		},
+	}
+}
+
 func (r *ChubaoMonitorReconciler) deploymentforgrafana(m *cachev1alpha1.ChubaoMonitor) *appsv1.Deployment {
 	labels := labelsForChubaoMonitor(m.Name)
 	selector := &metav1.LabelSelector{MatchLabels: labels}
-	var defaultmode int32 = 0555
 	dep := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
 			Kind:       "Deployment",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      m.Name,
-			Namespace: m.Namespace,
-
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(m, schema.GroupVersionKind{
-					Group:   v1.SchemeGroupVersion.Group,
-					Version: v1.SchemeGroupVersion.Version,
-					Kind:    "ChubaoMonitor",
-				}),
-			},
+			Name:            "grafana",
+			Namespace:       m.Namespace,
+			OwnerReferences: ownerreferenceforChubaoMonitor(m),
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &m.Spec.Sizeg,
@@ -213,24 +270,7 @@ func (r *ChubaoMonitorReconciler) deploymentforgrafana(m *cachev1alpha1.ChubaoMo
 				},
 				Spec: corev1.PodSpec{
 					Containers: containerforgrafana(m),
-					Volumes: []corev1.Volume{
-						{
-							Name: "monitor-config",
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "monitor-config",
-									},
-									DefaultMode: &defaultmode,
-								},
-							},
-						},
-						{Name: "grafana-persistent-storage",
-							VolumeSource: corev1.VolumeSource{
-								EmptyDir: &corev1.EmptyDirVolumeSource{},
-							},
-						},
-					},
+					Volumes:    volumesforgrafana(m),
 				},
 			},
 			Selector: selector,
@@ -258,66 +298,15 @@ func containerforgrafana(m *cachev1alpha1.ChubaoMonitor) []corev1.Container {
 			SecurityContext: &corev1.SecurityContext{
 				Privileged: &privileged,
 			},
-			Env: []corev1.EnvVar{
-				{
-					Name:  "GF_AUTH_BASIC_ENABLED",
-					Value: "true",
-				},
-				{
-					Name:  "GF_AUTH_ANONYMOUS_ENABLED",
-					Value: "false",
-				},
-				{
-					Name:  "GF_SECURITY_ADMIN_PASSWORD",
-					Value: "123456",
-				},
-			},
-			ReadinessProbe: &corev1.Probe{
-				Handler: corev1.Handler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/login",
-						Port: utilintstr.IntOrString{
-							IntVal: 3000,
-						},
-					},
-				},
-			},
-			VolumeMounts: []corev1.VolumeMount{
-				{
-					Name:      "grafana-persistent-storage",
-					MountPath: "/var/lib/grafana",
-				},
-				{
-					Name:      "monitor-config",
-					MountPath: "/grafana/init.sh",
-					SubPath:   "init.sh",
-				},
-				{
-					Name:      "monitor-config",
-					MountPath: "/etc/grafana/grafana.ini",
-					SubPath:   "grafana.ini",
-				},
-				{
-					Name:      "monitor-config",
-					MountPath: "/etc/grafana/provisioning/dashboards/chubaofs.json",
-					SubPath:   "chubaofs.json",
-				},
-				{
-					Name:      "monitor-config",
-					MountPath: "/etc/grafana/provisioning/dashboards/dashboard.yml",
-					SubPath:   "dashboard.yml",
-				},
-				{
-					Name:      "monitor-config",
-					MountPath: "/etc/grafana/provisioning/datasources/datasource.yml",
-					SubPath:   "datasource.yml",
-				},
-			},
+			Env:            envforgrafana(),
+			ReadinessProbe: readinessforgrafana(),
+			VolumeMounts:   volumemountsforgrafana(),
 		},
 	}
 }
 
 func serviceforgrafana(m *cachev1alpha1.ChubaoMonitor) *corev1.Service {
+	labels := labelsForChubaoMonitor(m.Name)
 
 	return &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
@@ -325,15 +314,9 @@ func serviceforgrafana(m *cachev1alpha1.ChubaoMonitor) *corev1.Service {
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "grafana-service",
-			Namespace: m.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(m, schema.GroupVersionKind{
-					Group:   v1.SchemeGroupVersion.Group,
-					Version: v1.SchemeGroupVersion.Version,
-					Kind:    "ChubaoMonitor",
-				}),
-			},
+			Name:            "grafana-service",
+			Namespace:       m.Namespace,
+			OwnerReferences: ownerreferenceforChubaoMonitor(m),
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
@@ -343,18 +326,113 @@ func serviceforgrafana(m *cachev1alpha1.ChubaoMonitor) *corev1.Service {
 					Protocol:   "TCP",
 				},
 			},
-			Selector: map[string]string{
-				"app": "grafana",
+			Selector: labels,
+		},
+	}
+}
+
+func volumesforgrafana(m *cachev1alpha1.ChubaoMonitor) []corev1.Volume {
+	var defaultmode int32 = 0555
+
+	return []corev1.Volume{
+		{
+			Name: "monitor-config",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "monitor-config",
+					},
+					DefaultMode: &defaultmode,
+				},
+			},
+		},
+		{Name: "grafana-persistent-storage",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
 		},
 	}
+}
 
+func volumemountsforgrafana() []corev1.VolumeMount {
+	return []corev1.VolumeMount{
+		{
+			Name:      "grafana-persistent-storage",
+			MountPath: "/var/lib/grafana",
+		},
+		{
+			Name:      "monitor-config",
+			MountPath: "/grafana/init.sh",
+			SubPath:   "init.sh",
+		},
+		{
+			Name:      "monitor-config",
+			MountPath: "/etc/grafana/grafana.ini",
+			SubPath:   "grafana.ini",
+		},
+		{
+			Name:      "monitor-config",
+			MountPath: "/etc/grafana/provisioning/dashboards/chubaofs.json",
+			SubPath:   "chubaofs.json",
+		},
+		{
+			Name:      "monitor-config",
+			MountPath: "/etc/grafana/provisioning/dashboards/dashboard.yml",
+			SubPath:   "dashboard.yml",
+		},
+		{
+			Name:      "monitor-config",
+			MountPath: "/etc/grafana/provisioning/datasources/datasource.yml",
+			SubPath:   "datasource.yml",
+		},
+	}
+}
+
+func envforgrafana() []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{
+			Name:  "GF_AUTH_BASIC_ENABLED",
+			Value: "true",
+		},
+		{
+			Name:  "GF_AUTH_ANONYMOUS_ENABLED",
+			Value: "false",
+		},
+		{
+			Name:  "GF_SECURITY_ADMIN_PASSWORD",
+			Value: "123456",
+		},
+	}
+}
+
+func readinessforgrafana() *corev1.Probe {
+	return &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/login",
+				Port: utilintstr.IntOrString{
+					IntVal: 3000,
+				},
+			},
+		},
+	}
 }
 
 // labelsForChubaoMonitorOperator returns the labels for selecting the resources
 // belonging to the given chubaomonitor CR name.
 func labelsForChubaoMonitor(name string) map[string]string {
 	return map[string]string{"app": name}
+}
+
+func ownerreferenceforChubaoMonitor(m *cachev1alpha1.ChubaoMonitor) []metav1.OwnerReference {
+	return []metav1.OwnerReference{
+		*metav1.NewControllerRef(m, schema.GroupVersionKind{
+			Group:   v1.SchemeGroupVersion.Group,
+			Version: v1.SchemeGroupVersion.Version,
+			Kind:    "ChubaoMonitor",
+		}),
+	}
+
 }
 
 // getPodNames returns the pod names of the array of pods passed in
