@@ -1,0 +1,7 @@
+apiVersion: cache.example.com/v1alpha1
+kind: ChubaoMonitor
+metadata:
+  name: chubaomonitor-sample
+spec:
+  # Add fields here
+  foo: bar
