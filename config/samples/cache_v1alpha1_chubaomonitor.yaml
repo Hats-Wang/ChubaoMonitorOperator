@@ -1,7 +1,20 @@
 apiVersion: cache.example.com/v1alpha1
 kind: ChubaoMonitor
 metadata:
-  name: chubaomonitor-sample
+  namespace: test
+  name: chubaomonitor
 spec:
-  # Add fields here
-  foo: bar
+  sizep: 1
+  sizeg: 1
+  imagep: prom/prometheus:latest
+  imageg: grafana/grafana:v6.4.4
+  imagePullPolicyp: IfNotPresent
+  imagePullPolicyg: IfNotPresent
+  hostPath: 
+    path: /var/lib/chubaofs_prometheus
+  portsg:
+    - port: 9090
+      targetPort: 9090
+  portsp:
+    - port: 3000
+      targetPort: 3000

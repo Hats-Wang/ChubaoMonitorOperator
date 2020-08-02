@@ -123,14 +123,59 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	}
 	//fetch the deploymentgrafana successfully
 
-	//check if the deployment is right
+	//check if the deploymentprometheus is right
+	if !reflect.DeepEqual(desiredDeploymentPrometheus.Spec, deploymentPrometheus.Spec) {
+		deploymentPrometheus.Spec = desiredDeploymentPrometheus.Spec
+		if err = r.Update(ctx, deploymentPrometheus); err != nil {
+			log.Error(err, "Failed to update Deployment", "Deployment.Namespace", deploymentPrometheus.Namespace, "Deployment.Name", deploymentPrometheus.Name)
+			return ctrl.Result{}, err
+		}
+	}
+
+	//check if the prometheus service is right
+	servicePrometheus := &corev1.Service{}
+	err = r.Get(ctx, types.NamespacedName{Name: "prometheus-service", Namespace: chubaomonitor.Namespace}, servicePrometheus)
+	if err == nil {
+		if !reflect.DeepEqual(desiredServicePrometheus.Spec.Ports, servicePrometheus.Spec.Ports) {
+			servicePrometheus.Spec.Ports = desiredServicePrometheus.Spec.Ports
+			if err := r.Update(ctx, servicePrometheus); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	} else {
+		return ctrl.Result{}, err
+	}
+
+	//check if the deploymentgrafana is right
+	if !reflect.DeepEqual(desiredDeploymentGrafana.Spec, deploymentGrafana.Spec) {
+		deploymentGrafana.Spec = desiredDeploymentGrafana.Spec
+		if err = r.Update(ctx, deploymentGrafana); err != nil {
+			log.Error(err, "Failed to update Deployment", "Deployment.Namespace", deploymentGrafana.Namespace, "Deployment.Name", deploymentGrafana.Name)
+			return ctrl.Result{}, err
+		}
+	}
+
+	//check if the grafana service is right
+	serviceGrafana := &corev1.Service{}
+	err = r.Get(ctx, types.NamespacedName{Name: "grafana-service", Namespace: chubaomonitor.Namespace}, serviceGrafana)
+	if err == nil {
+		if !reflect.DeepEqual(desiredServiceGrafana.Spec.Ports, serviceGrafana.Spec.Ports) {
+			serviceGrafana.Spec.Ports = desiredServiceGrafana.Spec.Ports
+			if err := r.Update(ctx, serviceGrafana); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	} else {
+		return ctrl.Result{}, err
+	}
 
 	//my logic finished
 	return ctrl.Result{}, nil
 }
 
 func (r *ChubaoMonitorReconciler) deploymentforprometheus(m *cachev1alpha1.ChubaoMonitor) *appsv1.Deployment {
-	labels := labelsForChubaoMonitor(m.Name)
+	name := "prometheus"
+	labels := labelsForChubaoMonitor(name)
 	selector := &metav1.LabelSelector{MatchLabels: labels}
 	dep := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
@@ -191,7 +236,8 @@ func containerforprometheus(m *cachev1alpha1.ChubaoMonitor) []corev1.Container {
 }
 
 func serviceforprometheus(m *cachev1alpha1.ChubaoMonitor) *corev1.Service {
-	labels := labelsForChubaoMonitor(m.Name)
+	name := "prometheus"
+	labels := labelsForChubaoMonitor(name)
 
 	return &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
@@ -255,7 +301,8 @@ func volumemountsforprometheus() []corev1.VolumeMount {
 }
 
 func (r *ChubaoMonitorReconciler) deploymentforgrafana(m *cachev1alpha1.ChubaoMonitor) *appsv1.Deployment {
-	labels := labelsForChubaoMonitor(m.Name)
+	name := "grafana"
+	labels := labelsForChubaoMonitor(name)
 	selector := &metav1.LabelSelector{MatchLabels: labels}
 	dep := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
@@ -311,8 +358,8 @@ func containerforgrafana(m *cachev1alpha1.ChubaoMonitor) []corev1.Container {
 }
 
 func serviceforgrafana(m *cachev1alpha1.ChubaoMonitor) *corev1.Service {
-	labels := labelsForChubaoMonitor(m.Name)
-
+	name := "grafana"
+	labels := labelsForChubaoMonitor(name)
 	return &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Service",
