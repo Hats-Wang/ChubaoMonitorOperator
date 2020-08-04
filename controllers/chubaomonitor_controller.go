@@ -50,6 +50,9 @@ type ChubaoMonitorReconciler struct {
 func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
 	log := r.Log.WithValues("chubaomonitor", req.NamespacedName)
+
+	log.Info("get the request", "request.Namespace", req.Namespace, "request.Name", req.Name)
+
 	// your logic here
 	chubaomonitor := &cachev1alpha1.ChubaoMonitor{}
 	err := r.Get(ctx, req.NamespacedName, chubaomonitor)
@@ -186,13 +189,7 @@ func (r *ChubaoMonitorReconciler) deploymentforprometheus(m *cachev1alpha1.Chuba
 			Name:      "prometheus",
 			Namespace: m.Namespace,
 
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(m, schema.GroupVersionKind{
-					Group:   v1.SchemeGroupVersion.Group,
-					Version: v1.SchemeGroupVersion.Version,
-					Kind:    "ChubaoMonitor",
-				}),
-			},
+			OwnerReferences: ownerreferenceforChubaoMonitor(m),
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &m.Spec.Sizep,
@@ -452,7 +449,7 @@ func envforgrafana() []corev1.EnvVar {
 		},
 		{
 			Name:  "GF_SECURITY_ADMIN_PASSWORD",
-			Value: "123456",
+			Value: "admin",
 		},
 	}
 }
