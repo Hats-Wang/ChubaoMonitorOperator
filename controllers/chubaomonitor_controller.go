@@ -19,9 +19,11 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"os"
 	"reflect"
 
 	"github.com/go-logr/logr"
+	"github.com/prometheus/common/log"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -33,6 +35,9 @@ import (
 	utilintstr "k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	cachev1alpha1 "ChubaoMonitorOperator/api/v1alpha1"
 )
@@ -51,7 +56,7 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	ctx := context.Background()
 	log := r.Log.WithValues("chubaomonitor", req.NamespacedName)
 
-	log.Info("get the request", "request.Namespace", req.Namespace, "request.Name", req.Name)
+	//	log.Info("get the request", "request.Namespace", req.Namespace, "request.Name", req.Name)
 
 	// your logic here
 	chubaomonitor := &cachev1alpha1.ChubaoMonitor{}
@@ -130,7 +135,6 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	if !reflect.DeepEqual(desiredDeploymentPrometheus.Spec, deploymentPrometheus.Spec) {
 		deploymentPrometheus.Spec = desiredDeploymentPrometheus.Spec
 		if err = r.Update(ctx, deploymentPrometheus); err != nil {
-			log.Error(err, "Failed to update Deployment", "Deployment.Namespace", deploymentPrometheus.Namespace, "Deployment.Name", deploymentPrometheus.Name)
 			return ctrl.Result{}, err
 		}
 	}
@@ -153,7 +157,6 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	if !reflect.DeepEqual(desiredDeploymentGrafana.Spec, deploymentGrafana.Spec) {
 		deploymentGrafana.Spec = desiredDeploymentGrafana.Spec
 		if err = r.Update(ctx, deploymentGrafana); err != nil {
-			log.Error(err, "Failed to update Deployment", "Deployment.Namespace", deploymentGrafana.Namespace, "Deployment.Name", deploymentGrafana.Name)
 			return ctrl.Result{}, err
 		}
 	}
@@ -449,7 +452,7 @@ func envforgrafana() []corev1.EnvVar {
 		},
 		{
 			Name:  "GF_SECURITY_ADMIN_PASSWORD",
-			Value: "admin",
+			Value: "123456",
 		},
 	}
 }
@@ -494,8 +497,36 @@ func getPodNames(pods []corev1.Pod) []string {
 }
 
 func (r *ChubaoMonitorReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&cachev1alpha1.ChubaoMonitor{}).
-		Owns(&appsv1.Deployment{}).
-		Complete(r)
+
+	c, err := controller.New("chubaomonitor-controller", mgr, controller.Options{Reconciler: r})
+	if err != nil {
+		log.Error(err, "unable to setup chubaomonitor-controller")
+		os.Exit(1)
+	}
+
+	err = c.Watch(&source.Kind{Type: &cachev1alpha1.ChubaoMonitor{}}, &handler.EnqueueRequestForObject{})
+	if err != nil {
+		log.Error(err, "unable to watch ChubaoMonitor")
+		os.Exit(1)
+	}
+
+	err = c.Watch(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &cachev1alpha1.ChubaoMonitor{},
+	})
+	if err != nil {
+		log.Error(err, "unable to watch Deployment")
+		os.Exit(1)
+	}
+
+	err = c.Watch(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &cachev1alpha1.ChubaoMonitor{},
+	})
+	if err != nil {
+		log.Error(err, "unable to watch Service")
+		os.Exit(1)
+	}
+
+	return nil
 }
