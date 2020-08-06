@@ -56,7 +56,7 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	ctx := context.Background()
 	log := r.Log.WithValues("chubaomonitor", req.NamespacedName)
 
-	//	log.Info("get the request", "request.Namespace", req.Namespace, "request.Name", req.Name)
+	log.Info("get the request", "request.Namespace", req.Namespace, "request.Name", req.Name)
 
 	// your logic here
 	chubaomonitor := &cachev1alpha1.ChubaoMonitor{}
@@ -88,8 +88,26 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 			log.Error(err, "Failed to create new Deployment", "Deployment.Namespace", desiredDeploymentPrometheus.Namespace, "Deployment.Name", desiredDeploymentPrometheus.Name)
 			return ctrl.Result{}, err
 		}
-		//create the deployment successfully. Then create prometheus service.
+		//create the deployment successfully.
+		return ctrl.Result{Requeue: true}, nil
+	} else if err != nil {
+		log.Error(err, "Failed to get Deployment")
+	}
+	//fetch the deploymentprometheus successfully
 
+	//check if the deploymentprometheus is right
+	if !reflect.DeepEqual(desiredDeploymentPrometheus.Spec, deploymentPrometheus.Spec) {
+		deploymentPrometheus.Spec = desiredDeploymentPrometheus.Spec
+		if err = r.Update(ctx, deploymentPrometheus); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	//check if the prometheus service exit. If not, create one
+	servicePrometheus := &corev1.Service{}
+	err = r.Get(ctx, types.NamespacedName{Name: "prometheus-service", Namespace: chubaomonitor.Namespace}, servicePrometheus)
+
+	if err != nil && errors.IsNotFound(err) {
 		//create the prometheus service
 		log.Info("Creating a new Service", "Service.Namespace", desiredServicePrometheus.Namespace, "Service.Name", "prometheus-service")
 		err = r.Create(ctx, desiredServicePrometheus)
@@ -99,9 +117,17 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		}
 		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
-		log.Error(err, "Failed to get Deployment")
+		log.Error(err, "Failed to get Service")
 	}
-	//fetch the deploymentprometheus successfully
+	//fetch the serviceprometheus successfully
+
+	//check if the service Prometheus is right
+	if !reflect.DeepEqual(desiredServicePrometheus.Spec.Ports, servicePrometheus.Spec.Ports) {
+		servicePrometheus.Spec.Ports = desiredServicePrometheus.Spec.Ports
+		if err := r.Update(ctx, servicePrometheus); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
 
 	//check whether the grafana deployment exit. If not, create one
 	deploymentGrafana := &appsv1.Deployment{}
@@ -114,15 +140,7 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 			log.Error(err, "Failed to create new Deployment", "Deployment.Namespace", desiredDeploymentGrafana.Namespace, "Deployment.Name", desiredDeploymentGrafana.Name)
 			return ctrl.Result{}, err
 		}
-		//create the deployment successfully.Then create grafana service
-
-		//create the grafana service
-		log.Info("Creating a new Service", "Service.Namespace", desiredServiceGrafana.Namespace, "Service.Name", "grafana-service")
-		err = r.Create(ctx, desiredServiceGrafana)
-		if err != nil {
-			log.Error(err, "Failed to create new Service", "Service.Namespace", desiredServiceGrafana.Namespace, "Service.Name", "grafana-service")
-			return ctrl.Result{}, err
-		}
+		//create the deployment successfully.
 
 		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
@@ -130,28 +148,6 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		return ctrl.Result{}, err
 	}
 	//fetch the deploymentgrafana successfully
-
-	//check if the deploymentprometheus is right
-	if !reflect.DeepEqual(desiredDeploymentPrometheus.Spec, deploymentPrometheus.Spec) {
-		deploymentPrometheus.Spec = desiredDeploymentPrometheus.Spec
-		if err = r.Update(ctx, deploymentPrometheus); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	//check if the prometheus service is right
-	servicePrometheus := &corev1.Service{}
-	err = r.Get(ctx, types.NamespacedName{Name: "prometheus-service", Namespace: chubaomonitor.Namespace}, servicePrometheus)
-	if err == nil {
-		if !reflect.DeepEqual(desiredServicePrometheus.Spec.Ports, servicePrometheus.Spec.Ports) {
-			servicePrometheus.Spec.Ports = desiredServicePrometheus.Spec.Ports
-			if err := r.Update(ctx, servicePrometheus); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-	} else {
-		return ctrl.Result{}, err
-	}
 
 	//check if the deploymentgrafana is right
 	if !reflect.DeepEqual(desiredDeploymentGrafana.Spec, deploymentGrafana.Spec) {
@@ -161,18 +157,30 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		}
 	}
 
-	//check if the grafana service is right
+	//check if the grafana service exit. If not, create one
 	serviceGrafana := &corev1.Service{}
 	err = r.Get(ctx, types.NamespacedName{Name: "grafana-service", Namespace: chubaomonitor.Namespace}, serviceGrafana)
-	if err == nil {
-		if !reflect.DeepEqual(desiredServiceGrafana.Spec.Ports, serviceGrafana.Spec.Ports) {
-			serviceGrafana.Spec.Ports = desiredServiceGrafana.Spec.Ports
-			if err := r.Update(ctx, serviceGrafana); err != nil {
-				return ctrl.Result{}, err
-			}
+
+	if err != nil && errors.IsNotFound(err) {
+		//create the grafana service
+		log.Info("Creating a new Service", "Service.Namespace", desiredServiceGrafana.Namespace, "Service.Name", "grafana-service")
+		err = r.Create(ctx, desiredServiceGrafana)
+		if err != nil {
+			log.Error(err, "Failed to create new Service", "Service.Namespace", desiredServiceGrafana.Namespace, "Service.Name", "grafana-service")
+			return ctrl.Result{}, err
 		}
-	} else {
-		return ctrl.Result{}, err
+		return ctrl.Result{Requeue: true}, nil
+	} else if err != nil {
+		log.Error(err, "Failed to get Service")
+	}
+	//fetch the servicegrafana successful
+
+	//check if the grafana service is right
+	if !reflect.DeepEqual(desiredServiceGrafana.Spec.Ports, serviceGrafana.Spec.Ports) {
+		serviceGrafana.Spec.Ports = desiredServiceGrafana.Spec.Ports
+		if err := r.Update(ctx, serviceGrafana); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	//my logic finished
@@ -189,9 +197,8 @@ func (r *ChubaoMonitorReconciler) deploymentforprometheus(m *cachev1alpha1.Chuba
 			Kind:       "Deployment",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "prometheus",
-			Namespace: m.Namespace,
-
+			Name:            "prometheus",
+			Namespace:       m.Namespace,
 			OwnerReferences: ownerreferenceforChubaoMonitor(m),
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -208,8 +215,6 @@ func (r *ChubaoMonitorReconciler) deploymentforprometheus(m *cachev1alpha1.Chuba
 			Selector: selector,
 		},
 	}
-	// Set Prometheus instance as the owner and controller
-	ctrl.SetControllerReference(m, dep, r.Scheme)
 	return dep
 }
 
@@ -328,8 +333,6 @@ func (r *ChubaoMonitorReconciler) deploymentforgrafana(m *cachev1alpha1.ChubaoMo
 			Selector: selector,
 		},
 	}
-	// Set ChubaoMonitor instance as the owner and controller
-	ctrl.SetControllerReference(m, dep, r.Scheme)
 	return dep
 }
 
@@ -487,15 +490,6 @@ func ownerreferenceforChubaoMonitor(m *cachev1alpha1.ChubaoMonitor) []metav1.Own
 
 }
 
-// getPodNames returns the pod names of the array of pods passed in
-func getPodNames(pods []corev1.Pod) []string {
-	var podNames []string
-	for _, pod := range pods {
-		podNames = append(podNames, pod.Name)
-	}
-	return podNames
-}
-
 func (r *ChubaoMonitorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	c, err := controller.New("chubaomonitor-controller", mgr, controller.Options{Reconciler: r})
@@ -509,15 +503,17 @@ func (r *ChubaoMonitorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		log.Error(err, "unable to watch ChubaoMonitor")
 		os.Exit(1)
 	}
+	log.Info("ChubaoMonitor being watched")
 
 	err = c.Watch(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &cachev1alpha1.ChubaoMonitor{},
+		//		IsController: true,
+		OwnerType: &cachev1alpha1.ChubaoMonitor{},
 	})
 	if err != nil {
 		log.Error(err, "unable to watch Deployment")
 		os.Exit(1)
 	}
+	log.Info("Deployment being watched")
 
 	err = c.Watch(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
@@ -527,6 +523,7 @@ func (r *ChubaoMonitorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		log.Error(err, "unable to watch Service")
 		os.Exit(1)
 	}
+	log.Info("Service being watched")
 
 	return nil
 }

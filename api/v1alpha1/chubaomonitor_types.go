@@ -45,6 +45,10 @@ type ChubaoMonitorSpec struct {
 type ChubaoMonitorStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	//	Deploymentforprometheus bool `json:"deploymentforprometheus"`
+	//	Depploymentforgrafana   bool `json:"deploymentforgrafana"`
+	//	Serviceforprometheus    bool `json:"serviceforprometheus"`
+	//	Serviceforgrafana       bool `json:"serviceforgrafana"`
 }
 
 // +kubebuilder:object:root=true
