@@ -39,6 +39,8 @@ type ChubaoMonitorSpec struct {
 	ImagePullPolicyp corev1.PullPolicy            `json:"imagePullPolicyp,omitempty"`
 	ImagePullPolicyg corev1.PullPolicy            `json:"imagePullPolicyg,omitempty"`
 	HostPath         *corev1.HostPathVolumeSource `json:"hostPath,omitempty"`
+	Resourcesp       corev1.ResourceRequirements  `json:"resourcesp,omitempty"`
+	Resourcesg       corev1.ResourceRequirements  `json:"resourcesg,omitempty"`
 }
 
 // ChubaoMonitorStatus defines the observed state of ChubaoMonitor

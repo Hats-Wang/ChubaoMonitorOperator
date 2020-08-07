@@ -55,8 +55,6 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	ctx := context.Background()
 	log := r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
 
-	log.Info("get the request", "request.Namespace", req.Namespace, "request.Name", req.Name)
-
 	// my logic starts here
 
 	//fetch ChubaoMonitor instance.
@@ -77,6 +75,7 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	desiredServicePrometheus := serviceforprometheus(chubaomonitor)
 	desiredDeploymentGrafana := r.deploymentforgrafana(chubaomonitor)
 	desiredServiceGrafana := serviceforgrafana(chubaomonitor)
+	desiredConfigmap := ConfigmapForChubaomonitor(chubaomonitor)
 
 	if err := controllerutil.SetControllerReference(chubaomonitor, desiredDeploymentPrometheus, r.Scheme); err != nil {
 		return ctrl.Result{}, err
@@ -89,6 +88,34 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	}
 	if err := controllerutil.SetControllerReference(chubaomonitor, desiredServiceGrafana, r.Scheme); err != nil {
 		return ctrl.Result{}, err
+	}
+	if err := controllerutil.SetControllerReference(chubaomonitor, desiredConfigmap, r.Scheme); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	//check if the configmap exit. If not,create one.
+	configmapchubaomonitor := &corev1.ConfigMap{}
+	err = r.Get(ctx, types.NamespacedName{Name: "monitor-config", Namespace: chubaomonitor.Namespace}, configmapchubaomonitor)
+	if err != nil && errors.IsNotFound(err) {
+		//create configmap
+		err = r.Create(ctx, desiredConfigmap)
+		if err != nil {
+			log.Error(err, "Failed to create new configmap", "Configmap.Namespace", desiredConfigmap.Namespace, "Configmap.Name", desiredConfigmap.Name)
+			return ctrl.Result{}, err
+		}
+		//create the configmap successfully.
+		return ctrl.Result{Requeue: true}, nil
+	} else if err != nil {
+		log.Error(err, "Failed to get chubaomonitor configmap")
+	}
+	//fetch chubaomonitor configmap successfully
+
+	//check if chubaomonitor configmap data is right
+	if !reflect.DeepEqual(desiredConfigmap, configmapchubaomonitor) {
+		configmapchubaomonitor = desiredConfigmap
+		if err = r.Update(ctx, configmapchubaomonitor); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	//check if the prometheus deployment exit. If not, create one
@@ -499,8 +526,7 @@ func (r *ChubaoMonitorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	err = c.Watch(&source.Kind{Type: &cachev1alpha1.ChubaoMonitor{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
-		log.Error(err, "unable to watch ChubaoMonitor")
-		os.Exit(1)
+		return err
 	}
 	log.Info("ChubaoMonitor being watched")
 
@@ -509,8 +535,7 @@ func (r *ChubaoMonitorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		OwnerType:    &cachev1alpha1.ChubaoMonitor{},
 	})
 	if err != nil {
-		log.Error(err, "unable to watch Deployment")
-		os.Exit(1)
+		return err
 	}
 	log.Info("Deployment being watched")
 
@@ -519,10 +544,17 @@ func (r *ChubaoMonitorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		OwnerType:    &cachev1alpha1.ChubaoMonitor{},
 	})
 	if err != nil {
-		log.Error(err, "unable to watch Service")
-		os.Exit(1)
+		return err
 	}
 	log.Info("Service being watched")
+	err = c.Watch(&source.Kind{Type: &corev1.ConfigMap{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &cachev1alpha1.ChubaoMonitor{},
+	})
+	if err != nil {
+		return err
+	}
+	log.Info("ConfigMap being watched")
 
 	return nil
 }
