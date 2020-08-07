@@ -215,7 +215,6 @@ func (r *ChubaoMonitorReconciler) deploymentforprometheus(m *cachev1alpha1.Chuba
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "prometheus",
 			Namespace: m.Namespace,
-			//			OwnerReferences: ownerreferenceforChubaoMonitor(m),
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &m.Spec.Sizep,
@@ -268,7 +267,6 @@ func serviceforprometheus(m *cachev1alpha1.ChubaoMonitor) *corev1.Service {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "prometheus-service",
 			Namespace: m.Namespace,
-			//			OwnerReferences: ownerreferenceforChubaoMonitor(m),
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
@@ -333,7 +331,6 @@ func (r *ChubaoMonitorReconciler) deploymentforgrafana(m *cachev1alpha1.ChubaoMo
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "grafana",
 			Namespace: m.Namespace,
-			//			OwnerReferences: ownerreferenceforChubaoMonitor(m),
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &m.Spec.Sizeg,
@@ -387,7 +384,6 @@ func serviceforgrafana(m *cachev1alpha1.ChubaoMonitor) *corev1.Service {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "grafana-service",
 			Namespace: m.Namespace,
-			//			OwnerReferences: ownerreferenceforChubaoMonitor(m),
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
@@ -493,17 +489,6 @@ func readinessforgrafana() *corev1.Probe {
 // belonging to the given chubaomonitor CR name.
 func labelsForChubaoMonitor(name string) map[string]string {
 	return map[string]string{"app": name}
-}
-
-func ownerreferenceforChubaoMonitor(m *cachev1alpha1.ChubaoMonitor) []metav1.OwnerReference {
-	return []metav1.OwnerReference{
-		*metav1.NewControllerRef(m, schema.GroupVersionKind{
-			Group:   v1.SchemeGroupVersion.Group,
-			Version: v1.SchemeGroupVersion.Version,
-			Kind:    "ChubaoMonitor",
-		}),
-	}
-
 }
 
 func (r *ChubaoMonitorReconciler) SetupWithManager(mgr ctrl.Manager) error {
