@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/prometheus/common/log"
@@ -98,13 +99,14 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	err = r.Get(ctx, types.NamespacedName{Name: "monitor-config", Namespace: chubaomonitor.Namespace}, configmapchubaomonitor)
 	if err != nil && errors.IsNotFound(err) {
 		//create configmap
+		log.Info("Creating a new chubaomonitor configmap", "Configmap.Namespace", desiredConfigmap.Namespace, "Configmap.Name", desiredConfigmap.Name)
 		err = r.Create(ctx, desiredConfigmap)
 		if err != nil {
 			log.Error(err, "Failed to create new configmap", "Configmap.Namespace", desiredConfigmap.Namespace, "Configmap.Name", desiredConfigmap.Name)
 			return ctrl.Result{}, err
 		}
 		//create the configmap successfully.
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{RequeueAfter: time.Second * 1}, nil
 	} else if err != nil {
 		log.Error(err, "Failed to get chubaomonitor configmap")
 	}
@@ -391,7 +393,9 @@ func containerforgrafana(m *cachev1alpha1.ChubaoMonitor) []corev1.Container {
 			SecurityContext: &corev1.SecurityContext{
 				Privileged: &privileged,
 			},
-			Env:            envforgrafana(),
+			Env: envforgrafana(),
+			// If grafana pod show the err "back-off restarting failed container", run this command to keep the container running ang then run ./run.sh in the container to check the really error.
+			//			Command:        []string{"/bin/bash", "-ce", "tail -f /dev/null"},
 			ReadinessProbe: readinessforgrafana(),
 			VolumeMounts:   volumemountsforgrafana(),
 		},
