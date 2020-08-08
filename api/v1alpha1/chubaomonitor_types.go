@@ -30,17 +30,17 @@ type ChubaoMonitorSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Foo is an example field of ChubaoMonitor. Edit ChubaoMonitor_types.go to remove/update
-	Sizep            int32                        `json:"sizep"`
-	Sizeg            int32                        `json:"sizeg"`
-	Imagep           string                       `json:"imagep"`
-	Imageg           string                       `json:"imageg"`
-	Portsp           []corev1.ServicePort         `json:"portsp,omitempty"`
-	Portsg           []corev1.ServicePort         `json:"portsg,omitempty"`
-	ImagePullPolicyp corev1.PullPolicy            `json:"imagePullPolicyp,omitempty"`
-	ImagePullPolicyg corev1.PullPolicy            `json:"imagePullPolicyg,omitempty"`
-	HostPath         *corev1.HostPathVolumeSource `json:"hostPath,omitempty"`
-	Resourcesp       corev1.ResourceRequirements  `json:"resourcesp,omitempty"`
-	Resourcesg       corev1.ResourceRequirements  `json:"resourcesg,omitempty"`
+	Sizeprom               int32                        `json:"sizeprom"`
+	Sizegrafana            int32                        `json:"sizegrafana"`
+	Imageprom              string                       `json:"imageprom"`
+	Imagegrafana           string                       `json:"imagegrafana"`
+	Portprom               int32                        `json:"portprom,omitempty"`
+	Portgrafana            int32                        `json:"portgrafana,omitempty"`
+	ImagePullPolicyprom    corev1.PullPolicy            `json:"imagePullPolicyprom,omitempty"`
+	ImagePullPolicygrafana corev1.PullPolicy            `json:"imagePullPolicygrafana,omitempty"`
+	HostPath               *corev1.HostPathVolumeSource `json:"hostPath,omitempty"`
+	Resourcesprom          corev1.ResourceRequirements  `json:"resourcesprom,omitempty"`
+	Resourcesgrafana       corev1.ResourceRequirements  `json:"resourcesgrafana,omitempty"`
 }
 
 // ChubaoMonitorStatus defines the observed state of ChubaoMonitor

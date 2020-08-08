@@ -4,17 +4,13 @@ metadata:
   namespace: test
   name: chubaomonitor
 spec:
-  sizep: 1
-  sizeg: 1
-  imagep: prom/prometheus:latest
-  imageg: grafana/grafana:6.4.4
-  imagePullPolicyp: IfNotPresent
-  imagePullPolicyg: IfNotPresent
+  sizeprom: 1
+  sizegrafana: 1
+  imageprom: prom/prometheus:latest
+  imagegrafana: grafana/grafana:6.4.4
+  imagePullPolicyprom: IfNotPresent
+  imagePullPolicygrafana: IfNotPresent
   hostPath: 
     path: /var/lib/chubaofs_prometheus
-  portsg:
-    - port: 3000
-      targetPort: 3000
-  portsp:
-    - port: 9090
-      targetPort: 9090
+  portprom: 9090
+  portgrafana: 3000

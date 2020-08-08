@@ -244,7 +244,7 @@ func (r *ChubaoMonitorReconciler) deploymentforprometheus(m *cachev1alpha1.Chuba
 			Namespace: m.Namespace,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: &m.Spec.Sizep,
+			Replicas: &m.Spec.Sizeprom,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels,
@@ -261,19 +261,21 @@ func (r *ChubaoMonitorReconciler) deploymentforprometheus(m *cachev1alpha1.Chuba
 }
 
 func containerforprometheus(m *cachev1alpha1.ChubaoMonitor) []corev1.Container {
-	containerPorts := []corev1.ContainerPort{}
-	for _, svcPort := range m.Spec.Portsp {
-		cport := corev1.ContainerPort{}
-		cport.ContainerPort = svcPort.TargetPort.IntVal
-		containerPorts = append(containerPorts, cport)
-	}
-
+	/*	containerPorts := []corev1.ContainerPort{}
+		for _, svcPort := range m.Spec.Portsp {
+			cport := corev1.ContainerPort{}
+			cport.ContainerPort = svcPort.TargetPort.IntVal
+			containerPorts = append(containerPorts, cport)
+		}
+	*/
 	return []corev1.Container{
 		{
-			Name:            "prometheus-pod",
-			Image:           m.Spec.Imagep,
-			Ports:           containerPorts,
-			ImagePullPolicy: m.Spec.ImagePullPolicyp,
+			Name:  "prometheus-pod",
+			Image: m.Spec.Imageprom,
+			Ports: []corev1.ContainerPort{
+				{ContainerPort: m.Spec.Portprom},
+			},
+			ImagePullPolicy: m.Spec.ImagePullPolicyprom,
 			Env: []corev1.EnvVar{
 				{Name: "TZ", Value: "Asia/Shanghai"},
 			},
@@ -298,8 +300,8 @@ func serviceforprometheus(m *cachev1alpha1.ChubaoMonitor) *corev1.Service {
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
 				{
-					Port:       m.Spec.Portsp[0].Port,
-					TargetPort: m.Spec.Portsp[0].TargetPort,
+					Port:       m.Spec.Portprom,
+					TargetPort: utilintstr.IntOrString{IntVal: m.Spec.Portprom, Type: utilintstr.Int},
 					Protocol:   "TCP",
 				},
 			},
@@ -360,7 +362,7 @@ func (r *ChubaoMonitorReconciler) deploymentforgrafana(m *cachev1alpha1.ChubaoMo
 			Namespace: m.Namespace,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: &m.Spec.Sizeg,
+			Replicas: &m.Spec.Sizegrafana,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels,
@@ -377,19 +379,22 @@ func (r *ChubaoMonitorReconciler) deploymentforgrafana(m *cachev1alpha1.ChubaoMo
 }
 
 func containerforgrafana(m *cachev1alpha1.ChubaoMonitor) []corev1.Container {
-	containerPorts := []corev1.ContainerPort{}
-	for _, svcPort := range m.Spec.Portsg {
-		cport := corev1.ContainerPort{}
-		cport.ContainerPort = svcPort.TargetPort.IntVal
-		containerPorts = append(containerPorts, cport)
-	}
+	/*	containerPorts := []corev1.ContainerPort{}
+		for _, svcPort := range m.Spec.Portgrafana {
+			cport := corev1.ContainerPort{}
+			cport.ContainerPort = svcPort.TargetPort.IntVal
+			containerPorts = append(containerPorts, cport)
+		}*/
+
 	var privileged bool = true
 	return []corev1.Container{
 		{
-			Name:            "grafana-pod",
-			Image:           m.Spec.Imageg,
-			Ports:           containerPorts,
-			ImagePullPolicy: m.Spec.ImagePullPolicyg,
+			Name:  "grafana-pod",
+			Image: m.Spec.Imagegrafana,
+			Ports: []corev1.ContainerPort{
+				{ContainerPort: m.Spec.Portgrafana},
+			},
+			ImagePullPolicy: m.Spec.ImagePullPolicygrafana,
 			SecurityContext: &corev1.SecurityContext{
 				Privileged: &privileged,
 			},
@@ -417,8 +422,8 @@ func serviceforgrafana(m *cachev1alpha1.ChubaoMonitor) *corev1.Service {
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
 				{
-					Port:       m.Spec.Portsg[0].Port,
-					TargetPort: m.Spec.Portsg[0].TargetPort,
+					Port:       m.Spec.Portgrafana,
+					TargetPort: utilintstr.IntOrString{IntVal: m.Spec.Portgrafana, Type: utilintstr.Int},
 					Protocol:   "TCP",
 				},
 			},

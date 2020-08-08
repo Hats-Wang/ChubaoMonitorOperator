@@ -52,189 +52,89 @@ spec:
               required:
               - path
               type: object
-            imagePullPolicyg:
+            imagePullPolicygrafana:
               description: PullPolicy describes a policy for if/when to pull a container
                 image
               type: string
-            imagePullPolicyp:
+            imagePullPolicyprom:
               description: PullPolicy describes a policy for if/when to pull a container
                 image
               type: string
-            imageg:
+            imagegrafana:
               type: string
-            imagep:
+            imageprom:
               type: string
-            portsg:
-              items:
-                description: ServicePort contains information on service's port.
-                properties:
-                  appProtocol:
-                    description: The application protocol for this port. This field
-                      follows standard Kubernetes label syntax. Un-prefixed names
-                      are reserved for IANA standard service names (as per RFC-6335
-                      and http://www.iana.org/assignments/service-names). Non-standard
-                      protocols should use prefixed names such as mycompany.com/my-custom-protocol.
-                      Field can be enabled with ServiceAppProtocol feature gate.
-                    type: string
-                  name:
-                    description: The name of this port within the service. This must
-                      be a DNS_LABEL. All ports within a ServiceSpec must have unique
-                      names. When considering the endpoints for a Service, this must
-                      match the 'name' field in the EndpointPort. Optional if only
-                      one ServicePort is defined on this service.
-                    type: string
-                  nodePort:
-                    description: 'The port on each node on which this service is exposed
-                      when type=NodePort or LoadBalancer. Usually assigned by the
-                      system. If specified, it will be allocated to the service if
-                      unused or else creation of the service will fail. Default is
-                      to auto-allocate a port if the ServiceType of this Service requires
-                      one. More info: https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport'
-                    format: int32
-                    type: integer
-                  port:
-                    description: The port that will be exposed by this service.
-                    format: int32
-                    type: integer
-                  protocol:
-                    description: The IP protocol for this port. Supports "TCP", "UDP",
-                      and "SCTP". Default is TCP.
-                    type: string
-                  targetPort:
-                    anyOf:
-                    - type: integer
-                    - type: string
-                    description: 'Number or name of the port to access on the pods
-                      targeted by the service. Number must be in the range 1 to 65535.
-                      Name must be an IANA_SVC_NAME. If this is a string, it will
-                      be looked up as a named port in the target Pod''s container
-                      ports. If this is not specified, the value of the ''port'' field
-                      is used (an identity map). This field is ignored for services
-                      with clusterIP=None, and should be omitted or set equal to the
-                      ''port'' field. More info: https://kubernetes.io/docs/concepts/services-networking/service/#defining-a-service'
-                    x-kubernetes-int-or-string: true
-                required:
-                - port
-                type: object
-              type: array
-            portsp:
-              items:
-                description: ServicePort contains information on service's port.
-                properties:
-                  appProtocol:
-                    description: The application protocol for this port. This field
-                      follows standard Kubernetes label syntax. Un-prefixed names
-                      are reserved for IANA standard service names (as per RFC-6335
-                      and http://www.iana.org/assignments/service-names). Non-standard
-                      protocols should use prefixed names such as mycompany.com/my-custom-protocol.
-                      Field can be enabled with ServiceAppProtocol feature gate.
-                    type: string
-                  name:
-                    description: The name of this port within the service. This must
-                      be a DNS_LABEL. All ports within a ServiceSpec must have unique
-                      names. When considering the endpoints for a Service, this must
-                      match the 'name' field in the EndpointPort. Optional if only
-                      one ServicePort is defined on this service.
-                    type: string
-                  nodePort:
-                    description: 'The port on each node on which this service is exposed
-                      when type=NodePort or LoadBalancer. Usually assigned by the
-                      system. If specified, it will be allocated to the service if
-                      unused or else creation of the service will fail. Default is
-                      to auto-allocate a port if the ServiceType of this Service requires
-                      one. More info: https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport'
-                    format: int32
-                    type: integer
-                  port:
-                    description: The port that will be exposed by this service.
-                    format: int32
-                    type: integer
-                  protocol:
-                    description: The IP protocol for this port. Supports "TCP", "UDP",
-                      and "SCTP". Default is TCP.
-                    type: string
-                  targetPort:
-                    anyOf:
-                    - type: integer
-                    - type: string
-                    description: 'Number or name of the port to access on the pods
-                      targeted by the service. Number must be in the range 1 to 65535.
-                      Name must be an IANA_SVC_NAME. If this is a string, it will
-                      be looked up as a named port in the target Pod''s container
-                      ports. If this is not specified, the value of the ''port'' field
-                      is used (an identity map). This field is ignored for services
-                      with clusterIP=None, and should be omitted or set equal to the
-                      ''port'' field. More info: https://kubernetes.io/docs/concepts/services-networking/service/#defining-a-service'
-                    x-kubernetes-int-or-string: true
-                required:
-                - port
-                type: object
-              type: array
-            resourcesg:
-              description: ResourceRequirements describes the compute resource requirements.
-              properties:
-                limits:
-                  additionalProperties:
-                    anyOf:
-                    - type: integer
-                    - type: string
-                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                    x-kubernetes-int-or-string: true
-                  description: 'Limits describes the maximum amount of compute resources
-                    allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
-                  type: object
-                requests:
-                  additionalProperties:
-                    anyOf:
-                    - type: integer
-                    - type: string
-                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                    x-kubernetes-int-or-string: true
-                  description: 'Requests describes the minimum amount of compute resources
-                    required. If Requests is omitted for a container, it defaults
-                    to Limits if that is explicitly specified, otherwise to an implementation-defined
-                    value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
-                  type: object
-              type: object
-            resourcesp:
-              description: ResourceRequirements describes the compute resource requirements.
-              properties:
-                limits:
-                  additionalProperties:
-                    anyOf:
-                    - type: integer
-                    - type: string
-                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                    x-kubernetes-int-or-string: true
-                  description: 'Limits describes the maximum amount of compute resources
-                    allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
-                  type: object
-                requests:
-                  additionalProperties:
-                    anyOf:
-                    - type: integer
-                    - type: string
-                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                    x-kubernetes-int-or-string: true
-                  description: 'Requests describes the minimum amount of compute resources
-                    required. If Requests is omitted for a container, it defaults
-                    to Limits if that is explicitly specified, otherwise to an implementation-defined
-                    value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
-                  type: object
-              type: object
-            sizeg:
+            portgrafana:
               format: int32
               type: integer
-            sizep:
+            portprom:
+              format: int32
+              type: integer
+            resourcesgrafana:
+              description: ResourceRequirements describes the compute resource requirements.
+              properties:
+                limits:
+                  additionalProperties:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  description: 'Limits describes the maximum amount of compute resources
+                    allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                  type: object
+                requests:
+                  additionalProperties:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  description: 'Requests describes the minimum amount of compute resources
+                    required. If Requests is omitted for a container, it defaults
+                    to Limits if that is explicitly specified, otherwise to an implementation-defined
+                    value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                  type: object
+              type: object
+            resourcesprom:
+              description: ResourceRequirements describes the compute resource requirements.
+              properties:
+                limits:
+                  additionalProperties:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  description: 'Limits describes the maximum amount of compute resources
+                    allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                  type: object
+                requests:
+                  additionalProperties:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  description: 'Requests describes the minimum amount of compute resources
+                    required. If Requests is omitted for a container, it defaults
+                    to Limits if that is explicitly specified, otherwise to an implementation-defined
+                    value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                  type: object
+              type: object
+            sizegrafana:
+              format: int32
+              type: integer
+            sizeprom:
               description: Foo is an example field of ChubaoMonitor. Edit ChubaoMonitor_types.go
                 to remove/update
               format: int32
               type: integer
           required:
-          - imageg
-          - imagep
-          - sizeg
-          - sizep
+          - imagegrafana
+          - imageprom
+          - sizegrafana
+          - sizeprom
           type: object
         status:
           description: ChubaoMonitorStatus defines the observed state of ChubaoMonitor
