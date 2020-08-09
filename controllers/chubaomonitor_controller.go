@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"os"
 	"reflect"
-	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/prometheus/common/log"
@@ -101,20 +100,23 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		//create configmap
 		log.Info("Creating a new chubaomonitor configmap", "Configmap.Namespace", desiredConfigmap.Namespace, "Configmap.Name", desiredConfigmap.Name)
 		err = r.Create(ctx, desiredConfigmap)
-		if err != nil {
+		if err != nil && !errors.IsAlreadyExists(err) {
 			log.Error(err, "Failed to create new configmap", "Configmap.Namespace", desiredConfigmap.Namespace, "Configmap.Name", desiredConfigmap.Name)
 			return ctrl.Result{}, err
 		}
 		//create the configmap successfully.
-		return ctrl.Result{RequeueAfter: time.Second * 1}, nil
+		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
 		log.Error(err, "Failed to get chubaomonitor configmap")
 	}
 	//fetch chubaomonitor configmap successfully
 
 	//check if chubaomonitor configmap data is right
-	if !reflect.DeepEqual(desiredConfigmap, configmapchubaomonitor) {
+	if !reflect.DeepEqual(desiredConfigmap.Data, configmapchubaomonitor.Data) {
 		configmapchubaomonitor = desiredConfigmap
+
+		log.Info("Updating congfigmap")
+
 		if err = r.Update(ctx, configmapchubaomonitor); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -127,7 +129,7 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		//create prometheus deployment
 		log.Info("Creating a new prometheus Deployment", "Deployment.Namespace", desiredDeploymentPrometheus.Namespace, "Deployment.Name", desiredDeploymentPrometheus.Name)
 		err = r.Create(ctx, desiredDeploymentPrometheus)
-		if err != nil {
+		if err != nil && !errors.IsAlreadyExists(err) {
 			log.Error(err, "Failed to create new prometheus Deployment", "Deployment.Namespace", desiredDeploymentPrometheus.Namespace, "Deployment.Name", desiredDeploymentPrometheus.Name)
 			return ctrl.Result{}, err
 		}
@@ -139,8 +141,13 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	//fetch the deploymentprometheus successfully
 
 	//check if the deploymentprometheus is right
-	if !reflect.DeepEqual(desiredDeploymentPrometheus.Spec, deploymentPrometheus.Spec) {
-		deploymentPrometheus.Spec = desiredDeploymentPrometheus.Spec
+	if check := CompareDeployment(desiredDeploymentPrometheus, deploymentPrometheus); check {
+		deploymentPrometheus.Spec.Replicas = desiredDeploymentPrometheus.Spec.Replicas
+		deploymentPrometheus.Spec.Selector = desiredDeploymentPrometheus.Spec.Selector
+		deploymentPrometheus.Spec.Template = desiredDeploymentPrometheus.Spec.Template
+
+		log.Info("Updating deploymentprometheus")
+
 		if err = r.Update(ctx, deploymentPrometheus); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -154,7 +161,7 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		//create the prometheus service
 		log.Info("Creating a new promethues Service", "Service.Namespace", desiredServicePrometheus.Namespace, "Service.Name", "prometheus-service")
 		err = r.Create(ctx, desiredServicePrometheus)
-		if err != nil {
+		if err != nil && !errors.IsAlreadyExists(err) {
 			log.Error(err, "Failed to create new promethues Service", "Service.Namespace", desiredServicePrometheus.Namespace, "Service.Name", "prometheus-service")
 			return ctrl.Result{}, err
 		}
@@ -167,6 +174,9 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	//check if the service Prometheus is right
 	if !reflect.DeepEqual(desiredServicePrometheus.Spec.Ports, servicePrometheus.Spec.Ports) {
 		servicePrometheus.Spec.Ports = desiredServicePrometheus.Spec.Ports
+
+		log.Info("Updating serviceprometheus")
+
 		if err := r.Update(ctx, servicePrometheus); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -179,7 +189,7 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		//create the grafana deployment
 		log.Info("Creating a new grafana Deployment", "Deployment.Namespace", desiredDeploymentGrafana.Namespace, "Deployment.Name", desiredDeploymentGrafana.Name)
 		err = r.Create(ctx, desiredDeploymentGrafana)
-		if err != nil {
+		if err != nil && !errors.IsAlreadyExists(err) {
 			log.Error(err, "Failed to create new grafana Deployment", "Deployment.Namespace", desiredDeploymentGrafana.Namespace, "Deployment.Name", desiredDeploymentGrafana.Name)
 			return ctrl.Result{}, err
 		}
@@ -193,8 +203,12 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	//fetch the deploymentgrafana successfully
 
 	//check if the deploymentgrafana is right
-	if !reflect.DeepEqual(desiredDeploymentGrafana.Spec, deploymentGrafana.Spec) {
-		deploymentGrafana.Spec = desiredDeploymentGrafana.Spec
+	if check := CompareDeployment(desiredDeploymentGrafana, deploymentGrafana); check {
+		deploymentGrafana.Spec.Replicas = desiredDeploymentGrafana.Spec.Replicas
+		deploymentGrafana.Spec.Selector = desiredDeploymentGrafana.Spec.Selector
+		deploymentGrafana.Spec.Template = desiredDeploymentGrafana.Spec.Template
+		log.Info("Updating deploymentgrafana")
+
 		if err = r.Update(ctx, deploymentGrafana); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -208,7 +222,7 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		//create the grafana service
 		log.Info("Creating a new grafana Service", "Service.Namespace", desiredServiceGrafana.Namespace, "Service.Name", "grafana-service")
 		err = r.Create(ctx, desiredServiceGrafana)
-		if err != nil {
+		if err != nil && !errors.IsAlreadyExists(err) {
 			log.Error(err, "Failed to create new grafana Service", "Service.Namespace", desiredServiceGrafana.Namespace, "Service.Name", "grafana-service")
 			return ctrl.Result{}, err
 		}
@@ -221,6 +235,9 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	//check if the grafana service is right
 	if !reflect.DeepEqual(desiredServiceGrafana.Spec.Ports, serviceGrafana.Spec.Ports) {
 		serviceGrafana.Spec.Ports = desiredServiceGrafana.Spec.Ports
+
+		log.Info("Updating servicegrafana")
+
 		if err := r.Update(ctx, serviceGrafana); err != nil {
 			return ctrl.Result{}, err
 		}
