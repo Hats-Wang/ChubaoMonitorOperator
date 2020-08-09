@@ -69,24 +69,7 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	}
 	//fetch the ChubaoMonitor instance successfully
 
-	desiredDeploymentPrometheus := r.Deploymentforprometheus(chubaomonitor)
-	desiredServicePrometheus := Serviceforprometheus(chubaomonitor)
-	desiredDeploymentGrafana := r.Deploymentforgrafana(chubaomonitor)
-	desiredServiceGrafana := Serviceforgrafana(chubaomonitor)
 	desiredConfigmap := ConfigmapForChubaomonitor(chubaomonitor)
-
-	if err := controllerutil.SetControllerReference(chubaomonitor, desiredDeploymentPrometheus, r.Scheme); err != nil {
-		return ctrl.Result{}, err
-	}
-	if err := controllerutil.SetControllerReference(chubaomonitor, desiredServicePrometheus, r.Scheme); err != nil {
-		return ctrl.Result{}, err
-	}
-	if err := controllerutil.SetControllerReference(chubaomonitor, desiredDeploymentGrafana, r.Scheme); err != nil {
-		return ctrl.Result{}, err
-	}
-	if err := controllerutil.SetControllerReference(chubaomonitor, desiredServiceGrafana, r.Scheme); err != nil {
-		return ctrl.Result{}, err
-	}
 	if err := controllerutil.SetControllerReference(chubaomonitor, desiredConfigmap, r.Scheme); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -120,6 +103,11 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		}
 	}
 
+	desiredDeploymentPrometheus := r.Deploymentforprometheus(chubaomonitor)
+	if err := controllerutil.SetControllerReference(chubaomonitor, desiredDeploymentPrometheus, r.Scheme); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	//check if the prometheus deployment exit. If not, create one
 	deploymentPrometheus := &appsv1.Deployment{}
 	err = r.Get(ctx, types.NamespacedName{Name: "prometheus", Namespace: chubaomonitor.Namespace}, deploymentPrometheus)
@@ -141,14 +129,19 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	//check if the deploymentprometheus is right
 	if check := CompareDeployment(desiredDeploymentPrometheus, deploymentPrometheus); check {
 		deploymentPrometheus.Spec.Replicas = desiredDeploymentPrometheus.Spec.Replicas
-		deploymentPrometheus.Spec.Selector = desiredDeploymentPrometheus.Spec.Selector
-		deploymentPrometheus.Spec.Template = desiredDeploymentPrometheus.Spec.Template
+		//		deploymentPrometheus.Spec.Selector = desiredDeploymentPrometheus.Spec.Selector
+		//		deploymentPrometheus.Spec.Template = desiredDeploymentPrometheus.Spec.Template
 
 		log.Info("Updating deploymentprometheus")
 
 		if err = r.Update(ctx, deploymentPrometheus); err != nil {
 			return ctrl.Result{}, err
 		}
+	}
+
+	desiredServicePrometheus := Serviceforprometheus(chubaomonitor)
+	if err := controllerutil.SetControllerReference(chubaomonitor, desiredServicePrometheus, r.Scheme); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	//check if the prometheus service exit. If not, create one
@@ -170,14 +163,23 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	//fetch the serviceprometheus successfully
 
 	//check if the service Prometheus is right
-	if !reflect.DeepEqual(desiredServicePrometheus.Spec.Ports, servicePrometheus.Spec.Ports) {
+	if check := CompareService(servicePrometheus, desiredServicePrometheus); check {
 		servicePrometheus.Spec.Ports = desiredServicePrometheus.Spec.Ports
-
+		servicePrometheus.Spec.Type = corev1.ServiceTypeClusterIP
+		servicePrometheus.Spec.Selector = desiredServicePrometheus.Spec.Selector
+		if err := controllerutil.SetControllerReference(chubaomonitor, servicePrometheus, r.Scheme); err != nil {
+			return ctrl.Result{}, err
+		}
 		log.Info("Updating serviceprometheus")
 
 		if err := r.Update(ctx, servicePrometheus); err != nil {
 			return ctrl.Result{}, err
 		}
+	}
+
+	desiredDeploymentGrafana := r.Deploymentforgrafana(chubaomonitor)
+	if err := controllerutil.SetControllerReference(chubaomonitor, desiredDeploymentGrafana, r.Scheme); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	//check whether the grafana deployment exit. If not, create one
@@ -203,13 +205,23 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	//check if the deploymentgrafana is right
 	if check := CompareDeployment(desiredDeploymentGrafana, deploymentGrafana); check {
 		deploymentGrafana.Spec.Replicas = desiredDeploymentGrafana.Spec.Replicas
-		deploymentGrafana.Spec.Selector = desiredDeploymentGrafana.Spec.Selector
-		deploymentGrafana.Spec.Template = desiredDeploymentGrafana.Spec.Template
+
+		//		deploymentGrafana.Spec.Selector = desiredDeploymentGrafana.Spec.Selector
+		//		deploymentGrafana.Spec.Template = desiredDeploymentGrafana.Spec.Template
 		log.Info("Updating deploymentgrafana")
+
+		if err := controllerutil.SetControllerReference(chubaomonitor, deploymentGrafana, r.Scheme); err != nil {
+			return ctrl.Result{}, err
+		}
 
 		if err = r.Update(ctx, deploymentGrafana); err != nil {
 			return ctrl.Result{}, err
 		}
+	}
+
+	desiredServiceGrafana := Serviceforgrafana(chubaomonitor)
+	if err := controllerutil.SetControllerReference(chubaomonitor, desiredServiceGrafana, r.Scheme); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	//check if the grafana service exit. If not, create one
@@ -231,9 +243,13 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	//fetch the servicegrafana successful
 
 	//check if the grafana service is right
-	if !reflect.DeepEqual(desiredServiceGrafana.Spec.Ports, serviceGrafana.Spec.Ports) {
+	if check := CompareService(serviceGrafana, desiredServiceGrafana); check {
 		serviceGrafana.Spec.Ports = desiredServiceGrafana.Spec.Ports
-
+		serviceGrafana.Spec.Type = corev1.ServiceTypeClusterIP
+		serviceGrafana.Spec.Selector = desiredServiceGrafana.Spec.Selector
+		if err := controllerutil.SetControllerReference(chubaomonitor, serviceGrafana, r.Scheme); err != nil {
+			return ctrl.Result{}, err
+		}
 		log.Info("Updating servicegrafana")
 
 		if err := r.Update(ctx, serviceGrafana); err != nil {
