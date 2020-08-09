@@ -8,7 +8,7 @@ import (
 
 func CompareDeployment(a *appsv1.Deployment, b *appsv1.Deployment) bool {
 
-	if a.Spec.Replicas != b.Spec.Replicas {
+	if *a.Spec.Replicas != *b.Spec.Replicas {
 		return true
 	}
 	return false
