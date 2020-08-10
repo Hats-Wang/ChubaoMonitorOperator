@@ -13,6 +13,7 @@ func (r *ChubaoMonitorReconciler) Deploymentforprometheus(m *cachev1alpha1.Chuba
 	name := "prometheus"
 	labels := labelsForChubaoMonitor(name)
 	selector := &metav1.LabelSelector{MatchLabels: labels}
+
 	dep := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",

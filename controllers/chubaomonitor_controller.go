@@ -69,6 +69,7 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	}
 	//fetch the ChubaoMonitor instance successfully
 
+	//create desiredConfigmap
 	desiredConfigmap := ConfigmapForChubaomonitor(chubaomonitor)
 	if err := controllerutil.SetControllerReference(chubaomonitor, desiredConfigmap, r.Scheme); err != nil {
 		return ctrl.Result{}, err
@@ -94,14 +95,19 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 
 	//check if chubaomonitor configmap data is right
 	if !reflect.DeepEqual(desiredConfigmap.Data, configmapchubaomonitor.Data) {
-		configmapchubaomonitor = desiredConfigmap
+		configmapchubaomonitor.Data = desiredConfigmap.Data
+		if err := controllerutil.SetControllerReference(chubaomonitor, configmapchubaomonitor, r.Scheme); err != nil {
+			return ctrl.Result{}, err
+		}
 
 		log.Info("Updating congfigmap")
 
-		if err = r.Update(ctx, configmapchubaomonitor); err != nil {
+		if err = r.Update(ctx, configmapchubaomonitor); err != nil && !errors.IsConflict(err) {
 			return ctrl.Result{}, err
 		}
 	}
+
+	//create desiredDeploymentPrometheus
 
 	desiredDeploymentPrometheus := r.Deploymentforprometheus(chubaomonitor)
 	if err := controllerutil.SetControllerReference(chubaomonitor, desiredDeploymentPrometheus, r.Scheme); err != nil {
@@ -129,16 +135,19 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	//check if the deploymentprometheus is right
 	if check := CompareDeployment(desiredDeploymentPrometheus, deploymentPrometheus); check {
 		deploymentPrometheus.Spec.Replicas = desiredDeploymentPrometheus.Spec.Replicas
-		//		deploymentPrometheus.Spec.Selector = desiredDeploymentPrometheus.Spec.Selector
-		//		deploymentPrometheus.Spec.Template = desiredDeploymentPrometheus.Spec.Template
+		deploymentPrometheus.Spec = desiredDeploymentPrometheus.Spec
+		if err := controllerutil.SetControllerReference(chubaomonitor, deploymentPrometheus, r.Scheme); err != nil {
+			return ctrl.Result{}, err
+		}
 
 		log.Info("Updating deploymentprometheus")
 
-		if err = r.Update(ctx, deploymentPrometheus); err != nil {
+		if err = r.Update(ctx, deploymentPrometheus); err != nil && !errors.IsConflict(err) {
 			return ctrl.Result{}, err
 		}
 	}
 
+	//create desiredServicePrometheus
 	desiredServicePrometheus := Serviceforprometheus(chubaomonitor)
 	if err := controllerutil.SetControllerReference(chubaomonitor, desiredServicePrometheus, r.Scheme); err != nil {
 		return ctrl.Result{}, err
@@ -172,10 +181,12 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		}
 		log.Info("Updating serviceprometheus")
 
-		if err := r.Update(ctx, servicePrometheus); err != nil {
+		if err := r.Update(ctx, servicePrometheus); err != nil && !errors.IsConflict(err) {
 			return ctrl.Result{}, err
 		}
 	}
+
+	//create desiredDeploymentGrafana
 
 	desiredDeploymentGrafana := r.Deploymentforgrafana(chubaomonitor)
 	if err := controllerutil.SetControllerReference(chubaomonitor, desiredDeploymentGrafana, r.Scheme); err != nil {
@@ -205,7 +216,7 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	//check if the deploymentgrafana is right
 	if check := CompareDeployment(desiredDeploymentGrafana, deploymentGrafana); check {
 		deploymentGrafana.Spec.Replicas = desiredDeploymentGrafana.Spec.Replicas
-
+		deploymentGrafana.Spec = desiredDeploymentGrafana.Spec
 		//		deploymentGrafana.Spec.Selector = desiredDeploymentGrafana.Spec.Selector
 		//		deploymentGrafana.Spec.Template = desiredDeploymentGrafana.Spec.Template
 		log.Info("Updating deploymentgrafana")
@@ -214,10 +225,12 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 			return ctrl.Result{}, err
 		}
 
-		if err = r.Update(ctx, deploymentGrafana); err != nil {
+		if err = r.Update(ctx, deploymentGrafana); err != nil && !errors.IsConflict(err) {
 			return ctrl.Result{}, err
 		}
 	}
+
+	//create desiredServiceGrafana
 
 	desiredServiceGrafana := Serviceforgrafana(chubaomonitor)
 	if err := controllerutil.SetControllerReference(chubaomonitor, desiredServiceGrafana, r.Scheme); err != nil {
@@ -252,7 +265,7 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		}
 		log.Info("Updating servicegrafana")
 
-		if err := r.Update(ctx, serviceGrafana); err != nil {
+		if err := r.Update(ctx, serviceGrafana); err != nil && !errors.IsConflict(err) {
 			return ctrl.Result{}, err
 		}
 	}

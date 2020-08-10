@@ -6,7 +6,7 @@ metadata:
 spec:
   sizeprom: 1
   sizegrafana: 1
-  imageprom: prom/prometheus:latest
+  imageprom: prom/prometheus:v2.13.1
   imagegrafana: grafana/grafana:6.4.4
   imagePullPolicyprom: IfNotPresent
   imagePullPolicygrafana: IfNotPresent
