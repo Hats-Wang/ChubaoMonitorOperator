@@ -31,4 +31,4 @@ CRD definition: api/v1alpha1/chubaomonitor_types.go
 Business logic code are located in folder ./controllers
 
 
-Reference： https://sdk.operatorframework.io/docs/golang/quickstart/
+Reference： https://v0-19-x.sdk.operatorframework.io/docs/golang/quickstart/
