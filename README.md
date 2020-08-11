@@ -1,13 +1,34 @@
 ChubaoMonitorOperator
 
-CRD定义位于./api/v1alpha1/chubaomonitor_types.go
+Prerequisites:
+```
+go version v1.13+.
+docker version 17.03+.
+kubectl version v1.11.3+.
+kustomize v3.1.0+
+operator-SDK v0.19.0
+Access to a Kubernetes v1.11.3+ cluster
+```
 
-业务逻辑处理程序位于./controllers文件夹中
 
-yaml文件位于config/samples/cache_v1alpha1_chubaomonitor.yaml
+Build and run ChubaoMonitorOperator in master node locally outside the cluster:
+```
+git clone https://github.com/Hats-Wang/ChubaoMonitorOperator.git
+cd ChubaoMonitorOperator
+make generate && make manifests && make install && make run ENABLE_WEBHOOKS=false
+```
 
-本地快速运行： make run ENABLE_WEBHOOKS=false
+Edit file ./config/samples/cache_v1alpha1_chubaomonitor.yaml to customize your own ChubaoMonitor instance:
 
-创建CR： kubectl create -f config/samples/cache_v1alpha1_chubaomonitor.yaml
+
+Create your own ChubaoMonitor instance:
+```
+kubectl create -f ./config/samples/cache_v1alpha1_chubaomonitor.yaml
+```
+
+CRD definition: api/v1alpha1/chubaomonitor_types.go
+
+Business logic code are located in folder ./controllers
+
 
 Reference： https://sdk.operatorframework.io/docs/golang/quickstart/
