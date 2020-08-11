@@ -14,3 +14,18 @@ spec:
     path: /var/lib/chubaofs_prometheus
   portprom: 9090
   portgrafana: 3000
+  resourcesprom:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      cpu: 100m
+      memory: 512Mi
+  resourcesgrafana:
+    requests:
+      memory: 512Mi
+      cpu: 500m
+    limits:
+      memory: 1024Mi
+      cpu: 1000m
+

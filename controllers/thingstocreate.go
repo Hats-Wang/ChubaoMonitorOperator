@@ -54,6 +54,7 @@ func containerforprometheus(m *cachev1alpha1.ChubaoMonitor) []corev1.Container {
 				{Name: "TZ", Value: "Asia/Shanghai"},
 			},
 			VolumeMounts: volumemountsforprometheus(),
+			Resources:    m.Spec.Resourcesprom,
 		},
 	}
 }
@@ -171,6 +172,7 @@ func containerforgrafana(m *cachev1alpha1.ChubaoMonitor) []corev1.Container {
 			//          Command:        []string{"/bin/bash", "-ce", "tail -f /dev/null"},
 			ReadinessProbe: readinessforgrafana(),
 			VolumeMounts:   volumemountsforgrafana(),
+			Resources:      m.Spec.Resourcesgrafana,
 		},
 	}
 }
