@@ -138,6 +138,30 @@ spec:
           type: object
         status:
           description: ChubaoMonitorStatus defines the observed state of ChubaoMonitor
+          properties:
+            configmapstatus:
+              type: boolean
+            grafanaip:
+              type: string
+            grafanapods:
+              items:
+                type: string
+              type: array
+            grafanareplicas:
+              format: int32
+              type: integer
+            prometheusip:
+              type: string
+            prometheusreplicas:
+              description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
+                of cluster Important: Run "make" to regenerate code after modifying
+                this file'
+              format: int32
+              type: integer
+            prometiheuspods:
+              items:
+                type: string
+              type: array
           type: object
       type: object
   version: v1alpha1

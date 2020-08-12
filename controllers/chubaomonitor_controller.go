@@ -84,12 +84,15 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		err = r.Create(ctx, desiredConfigmap)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			log.Error(err, "Failed to create new configmap", "Configmap.Namespace", desiredConfigmap.Namespace, "Configmap.Name", desiredConfigmap.Name)
+			chubaomonitor.Status.Configmapstatus = false
 			return ctrl.Result{}, err
 		}
 		//create the configmap successfully.
+		chubaomonitor.Status.Configmapstatus = true
 		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
 		log.Error(err, "Failed to get chubaomonitor configmap")
+		chubaomonitor.Status.Configmapstatus = false
 	}
 	//fetch chubaomonitor configmap successfully
 
@@ -103,8 +106,10 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		log.Info("Updating congfigmap")
 
 		if err = r.Update(ctx, configmapchubaomonitor); err != nil && !errors.IsConflict(err) {
+			chubaomonitor.Status.Configmapstatus = false
 			return ctrl.Result{}, err
 		}
+		chubaomonitor.Status.Configmapstatus = true
 	}
 
 	//create desiredDeploymentPrometheus
@@ -134,7 +139,6 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 
 	//check if the deploymentprometheus is right
 	if check := CompareDeployment(desiredDeploymentPrometheus, deploymentPrometheus); check {
-		deploymentPrometheus.Spec.Replicas = desiredDeploymentPrometheus.Spec.Replicas
 		deploymentPrometheus.Spec = desiredDeploymentPrometheus.Spec
 		if err := controllerutil.SetControllerReference(chubaomonitor, deploymentPrometheus, r.Scheme); err != nil {
 			return ctrl.Result{}, err
@@ -143,6 +147,37 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		log.Info("Updating deploymentprometheus")
 
 		if err = r.Update(ctx, deploymentPrometheus); err != nil && !errors.IsConflict(err) {
+			return ctrl.Result{}, err
+		}
+	}
+
+	//Update chubaomonitor.Status.PrometheusReplicas, if needed.
+	if chubaomonitor.Status.PrometheusReplicas != *deploymentPrometheus.Spec.Replicas {
+		chubaomonitor.Status.PrometheusReplicas = *deploymentPrometheus.Spec.Replicas
+		err := r.Status().Update(ctx, chubaomonitor)
+		if err != nil && !errors.IsConflict(err) {
+			log.Error(err, "Failed to update ChubaoMonitor status")
+			return ctrl.Result{}, err
+		}
+	}
+
+	podList := &corev1.PodList{}
+	listOpts := []client.ListOption{
+		client.InNamespace(deploymentPrometheus.Namespace),
+		client.MatchingLabels(labelsForChubaoMonitor(deploymentPrometheus.Name)),
+	}
+	if err = r.List(ctx, podList, listOpts...); err != nil {
+		log.Error(err, "Failed to list pods", "deploymentPrometheus.Namespace", deploymentPrometheus.Namespace, "deploymentPrometheus.Name", deploymentPrometheus.Name)
+		return ctrl.Result{}, err
+	}
+	podNames := getPodNames(podList.Items)
+
+	// Update chubaomonitor.Status.PrometheusPods, if needed.
+	if !reflect.DeepEqual(podNames, chubaomonitor.Status.PrometheusPods) {
+		chubaomonitor.Status.PrometheusPods = podNames
+		err := r.Status().Update(ctx, chubaomonitor)
+		if err != nil && !errors.IsConflict(err) {
+			log.Error(err, "Failed to update ChubaoMonitor status")
 			return ctrl.Result{}, err
 		}
 	}
@@ -167,7 +202,7 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		}
 		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
-		log.Error(err, "Failed to get promethues Service")
+		log.Error(err, "Failed to get prometheus Service")
 	}
 	//fetch the serviceprometheus successfully
 
@@ -182,6 +217,15 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		log.Info("Updating serviceprometheus")
 
 		if err := r.Update(ctx, servicePrometheus); err != nil && !errors.IsConflict(err) {
+			return ctrl.Result{}, err
+		}
+	}
+
+	if chubaomonitor.Status.PrometheusclusterIP != servicePrometheus.Spec.ClusterIP {
+		chubaomonitor.Status.PrometheusclusterIP = servicePrometheus.Spec.ClusterIP
+		err := r.Status().Update(ctx, chubaomonitor)
+		if err != nil && !errors.IsConflict(err) {
+			log.Error(err, "Failed to update ChubaoMonitor status")
 			return ctrl.Result{}, err
 		}
 	}
@@ -230,6 +274,37 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		}
 	}
 
+	//Update chubaomonitor.Status.GrafanaReplicas, if needed.
+	if chubaomonitor.Status.GrafanaReplicas != *deploymentGrafana.Spec.Replicas {
+		chubaomonitor.Status.GrafanaReplicas = *deploymentGrafana.Spec.Replicas
+		err := r.Status().Update(ctx, chubaomonitor)
+		if err != nil && !errors.IsConflict(err) {
+			log.Error(err, "Failed to update ChubaoMonitor status")
+			return ctrl.Result{}, err
+		}
+	}
+
+	podList = &corev1.PodList{}
+	listOpts = []client.ListOption{
+		client.InNamespace(deploymentGrafana.Namespace),
+		client.MatchingLabels(labelsForChubaoMonitor(deploymentGrafana.Name)),
+	}
+	if err = r.List(ctx, podList, listOpts...); err != nil {
+		log.Error(err, "Failed to list pods", "deploymentGrafana.Namespace", deploymentGrafana.Namespace, "deploymentGrafana.Name", deploymentGrafana.Name)
+		return ctrl.Result{}, err
+	}
+	podNames = getPodNames(podList.Items)
+
+	// Update chubaomonitor.Status.GrafanaPods, if needed.
+	if !reflect.DeepEqual(podNames, chubaomonitor.Status.GrafanaPods) {
+		chubaomonitor.Status.GrafanaPods = podNames
+		err := r.Status().Update(ctx, chubaomonitor)
+		if err != nil && !errors.IsConflict(err) {
+			log.Error(err, "Failed to update ChubaoMonitor status")
+			return ctrl.Result{}, err
+		}
+	}
+
 	//create desiredServiceGrafana
 
 	desiredServiceGrafana := Serviceforgrafana(chubaomonitor)
@@ -270,8 +345,27 @@ func (r *ChubaoMonitorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		}
 	}
 
+	if chubaomonitor.Status.GrafanaclusterIP != serviceGrafana.Spec.ClusterIP {
+		chubaomonitor.Status.GrafanaclusterIP = serviceGrafana.Spec.ClusterIP
+		err := r.Status().Update(ctx, chubaomonitor)
+		if err != nil && !errors.IsConflict(err) {
+			log.Error(err, "Failed to update ChubaoMonitor status")
+			return ctrl.Result{}, err
+		}
+
+	}
+
 	//my logic finished
 	return ctrl.Result{}, nil
+}
+
+// getPodNames returns the pod names of the array of pods passed in
+func getPodNames(pods []corev1.Pod) []string {
+	var podNames []string
+	for _, pod := range pods {
+		podNames = append(podNames, pod.Name)
+	}
+	return podNames
 }
 
 func (r *ChubaoMonitorReconciler) SetupWithManager(mgr ctrl.Manager) error {
